@@ -44,8 +44,9 @@ class ClientHandler extends EventEmitter {
 
     get currLocalConflictId(): string { return this.localConflictId; }
 
-    parseResponse() {
-        this.emit("message")
+    parseResponse(op: CentralOperation.AckOperation) {
+        const payload = op.payload;
+        this.emit('message', payload);
     }
 
     storeLocalConflictId(conflictId: string): void {
@@ -117,6 +118,8 @@ class ClientHandler extends EventEmitter {
         })
     }
 }
+
+export default ClientHandler;
 
 /**
  * Define:
