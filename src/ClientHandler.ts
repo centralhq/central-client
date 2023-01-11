@@ -1,31 +1,39 @@
 import { EventEmitter } from 'events';
 import { CentralOperation } from "./types";
 import { QPersistence } from "./QPersistence";
-// TODO: add networking to connect with Central service
 class ClientHandler extends EventEmitter {
-    queue               : QPersistence;
+    queue              : QPersistence;
     localConflictId    : string;
     uuid               : string;
-    conn               : WebSocket;
-    isSubscribed        : boolean;
+    conn               : WebSocket | null;
+    connAttempts       : number;
+    pingTimeout        : number | undefined;
+    reconnDelay        : number;
+    maxBackoff         : number;
 
     constructor() {
         super();
-        this.queue            = new QPersistence();
+        this.queue           = new QPersistence();
         this.localConflictId = "";
         this.uuid            = "";
-        this.conn            = new WebSocket("ws://localhost:8080/ws"); 
-        this.isSubscribed    = false;
-        this.init();
+        this.conn            = null; 
+        this.connAttempts    = 0;
+        this.pingTimeout     = undefined;
+        this.reconnDelay     = 0;
+        this.maxBackoff      = 64;
+        this.connect();
     }
 
-    async init() {
-        this.conn.addEventListener('open',
-            event => {
-                console.log('Connected to Central service.')
-                this.isSubscribed = true;
-            }
-        );
+    get isOpen(): boolean { return this.conn?.readyState === this.conn?.OPEN }
+
+    get currLocalConflictId(): string { return this.localConflictId; }
+    // heartbeat is necessary to inform the server that we're still connected.
+    // exponential back-off is needed to make best effort to connect to the server.
+
+    connect() {
+        this.conn = new WebSocket("ws://localhost:8080");
+
+        this.conn.addEventListener('open', this.onWebSocketOpen);
 
         this.conn.addEventListener('message',
             event => {
@@ -37,12 +45,33 @@ class ClientHandler extends EventEmitter {
                         }
                     });
             }
-        ) 
+        );
+
+        this.conn.addEventListener('close', this.onWebSocketClose)
     }
 
-    get isOpen(): boolean { return this.isSubscribed; }
+    onWebSocketOpen() {
+        this.connAttempts = 0;
+        console.log('Connected to Central service.')
+    }
 
-    get currLocalConflictId(): string { return this.localConflictId; }
+    onWebSocketClose() {
+        this.conn = null;
+        setTimeout(() => {
+            this.reconnectToWebSocket();
+        }, this.reconnDelay);
+    }
+
+    reconnectToWebSocket() {
+        this.reconnDelay = Math.min(((2 ^ this.connAttempts) + this.getRandomIntInclusive(1, 1000)), this.maxBackoff)
+        this.connect();
+    }
+
+    getRandomIntInclusive(min: number, max: number): number {
+        const minimum = Math.ceil(min);
+        const maximum = Math.floor(max);
+        return Math.floor(Math.random() * (maximum - minimum + 1) + minimum);
+    }
 
     parseResponse(op: CentralOperation.AckOperation) {
         const payload = op.payload;
@@ -67,6 +96,11 @@ class ClientHandler extends EventEmitter {
 
     removeUuid(): void {
         this.uuid = "";
+    }
+
+    send(data: Object) {
+        if (!this.isOpen) return;
+        this.conn?.send(JSON.stringify(data));
     }
 
     async handleIncomingOp(op: CentralOperation.AckOperation): Promise<CentralOperation.AckOperation | null> {
