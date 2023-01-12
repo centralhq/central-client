@@ -1,7 +1,10 @@
 import { EventEmitter } from 'events';
 import { CentralOperation } from './types';
 import { QPersistence } from './QPersistence';
-class ClientHandler extends EventEmitter {
+// TODO: include uuid and documentId
+// TODO: subscribe to client service
+
+class CentralHandler extends EventEmitter {
   queue: QPersistence;
   localConflictId: string;
   uuid: string;
@@ -49,6 +52,23 @@ class ClientHandler extends EventEmitter {
     });
 
     this.conn.addEventListener('close', this.onWebSocketClose);
+  }
+
+  persistOutChange(opType: string, objectId: string): Error | undefined {
+    const result = this.createConflictId(opType, objectId);
+    if (typeof result === "string") {
+      this.storeLocalConflictId(result);
+    } else {
+      return result;
+    }
+  }
+
+  createConflictId(opType: string, objectId: string): string | Error {
+    if (opType.length > 0 && objectId.length > 0) {
+      return opType + "_" + objectId;
+    }
+
+    return new Error("inalid input");
   }
 
   onWebSocketOpen() {
@@ -149,7 +169,7 @@ class ClientHandler extends EventEmitter {
   }
 }
 
-export default ClientHandler;
+export default CentralHandler;
 
 /**
  * Define:
