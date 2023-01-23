@@ -1,20 +1,38 @@
 {
   "name": "central-client",
   "version": "1.0.0",
-  "description": "",
-  "main": "CentralHandler.ts",
+  "description": "A client that lets you interact with Central service.",
+  "main": "lib/CentralHandler.js",
+  "types": "lib/CentralHandler.d.ts",
   "scripts": {
     "test": "jest --config jest.config.json",
     "build": "tsc",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.js\"",
-    "lint": "tslint -p tsconfig.json"
+    "lint": "tslint -p tsconfig.json",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm test && npm run lint",
+    "preversion": "npm run lint",
+    "version": "npm run format && git add -A src",
+    "postversion": "git push && git push --tags"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/centralhq/central-client.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "central",
+    "real-time", 
+    "realtime", 
+    "toolkit", 
+    "multiplayer", 
+    "websockets", 
+    "collaboration", 
+    "collaborative", 
+    "sync", 
+    "synchronize", 
+    "conflict resolution"
+  ],
+  "author": "centralhq",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/centralhq/central-client/issues"
